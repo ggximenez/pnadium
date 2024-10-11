@@ -15,7 +15,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.12.6'
+        python-version: '3.x'  # Substitua pela versão do Python que você utiliza
 
     - name: Install build dependencies
       run: |
@@ -27,8 +27,8 @@ jobs:
 
     - name: Publish to PyPI
       env:
-        TWINE_USERNAME: __token__  # Indica que será utilizado um token de API
-        TWINE_PASSWORD: ${{ secrets.PYPITOKEN }}  # Passa o token do PyPI que você configurou como secret
+        TWINE_USERNAME: __token__  # O nome de usuário deve ser sempre "__token__" ao usar o token de API
+        TWINE_PASSWORD: ${{ secrets.PYPITOKEN }}  # O token de API do PyPI armazenado como secret no GitHub
       run: |
         pip install twine
         twine upload dist/*
