@@ -116,8 +116,8 @@ print(variaveis_anual_emprego)
 
 O parâmetro `tipo` determina o conjunto de dados anuais que será utilizado:
 
-- **Tipo 'v' (Visita):** Refere-se aos dados coletados por visita domiciliar. São utilizados para análises que consideram as diferentes visitas aos domicílios ao longo do ano.
-- **Tipo 't' (Trimestre):** Refere-se aos dados agregados por trimestre. Útil para análises de tendência ao longo dos trimestres do ano.
+- **Tipo 'v' (Visita):** Refere-se aos dados coletados por visita domiciliar. São realizadas 5 visitas ao longo do ano. 
+- **Tipo 't' (Trimestre):** Refere-se aos dados agregados por trimestre.
 
 #### Parâmetros `ano` e `t` na Função `consulta_var` do Submódulo `anual`
 
