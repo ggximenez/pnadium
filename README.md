@@ -1,6 +1,6 @@
 # pnadium
 
-Pacote para download e processamento dos microdados da PNAD Contínua do IBGE, facilitando o acesso aos microdados trimestrais, que contém a pesquisa básica e os microdados anuais, que também contém pesquisas suplementares (por trimestre ou visi).
+Pacote para download e processamento dos microdados da PNAD Contínua do IBGE, facilitando o acesso aos microdados trimestrais, que contém a pesquisa básica e os microdados anuais, que também contém pesquisas suplementares (por trimestre ou visita).
 
 ## Instalação
 
