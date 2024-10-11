@@ -1,13 +1,13 @@
 # pnadium
 
-Pacote para download e processamento dos microdados da PNAD Contínua do IBGE, facilitando o acesso aos dados trimestrais e anuais.
+Pacote para download e processamento dos microdados da PNAD Contínua do IBGE, facilitando o acesso aos microdados trimestrais, que contém a pesquisa básica e os microdados anuais, que também contém pesquisas suplementares (por trimestre ou visi).
 
 ## Instalação
 
 Para instalar o pacote `pnadium`, você pode clonar o repositório e instalar localmente:
 
 ```bash
-git clone https://github.com/seu_usuario/pnadium.git
+git clone https://github.com/ggximenez/pnadium.git
 cd pnadium
 pip install .
 ```
@@ -143,4 +143,4 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull r
 
 ## Autor
 
-- **Seu Nome** - [Seu GitHub](https://github.com/seu_usuario)
+- **Gustavo G. Ximenez**
