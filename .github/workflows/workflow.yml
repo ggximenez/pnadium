@@ -27,7 +27,8 @@ jobs:
 
     - name: Publish to PyPI
       env:
-        PYPI_API_TOKEN: ${{ secrets.PYPITOKEN }}
+        TWINE_USERNAME: __token__  # Indica que será utilizado um token de API
+        TWINE_PASSWORD: ${{ secrets.PYPITOKEN }}  # Passa o token do PyPI que você configurou como secret
       run: |
         pip install twine
         twine upload dist/*
