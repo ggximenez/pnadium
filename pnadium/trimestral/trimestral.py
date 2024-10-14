@@ -124,7 +124,6 @@ def download(ano, t, caminho = None):
     df_dic.columns = ['len', 'cod', 'desc']
     df_dic = df_dic.dropna(subset=['len'])
     var_dic = pd.merge(df_dic, df_var, on = 'cod', how='left')
-    var_dic = var_dic.dropna(subset=[chosen_file_i])
     print(f'Iniciou a criação do DataFrame Pandas: esta etapa pode demorar alguns minutos.')
     pnad = pd.read_fwf(temp_dir + '/' + pnad_txt, widths=list(var_dic['len'].astype(int)), names=list(var_dic['cod']), na_values=" ")
     print(f'DataFrame criado.')
