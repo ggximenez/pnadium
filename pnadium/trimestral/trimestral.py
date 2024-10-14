@@ -89,23 +89,15 @@ def download(ano, t, caminho = None):
         docs_files = ftp.nlst()
 
         doc = None
-        vars = None
         for i in docs_files:
             if 'dicionario' in i.lower():
                 doc = i
-            elif 'Variaveis_PNADC_Trimestral' in i:
-                vars = i
 
         # Caminhos para os arquivos de documentação
         doc_temp_file_path = os.path.join(temp_dir, doc)
-        vars_temp_file_path = os.path.join(temp_dir, vars)
 
         with open(doc_temp_file_path, 'wb') as doc_temp_file:
             ftp.retrbinary(f'RETR {doc_path + doc}', doc_temp_file.write)
-
-        with open(vars_temp_file_path, 'wb') as vars_temp_file:
-            ftp.retrbinary(f'RETR {doc_path + vars}', vars_temp_file.write)
-
         print(f'Download finalizado.')
     with zipfile.ZipFile(temp_file_path, 'r') as zip_ref:
         pnad_txt = zip_ref.namelist()[0]
@@ -116,9 +108,6 @@ def download(ano, t, caminho = None):
             if '.xls' in i:
                 vars_dic_xlsx = i
         zip_ref.extractall(temp_dir)  # Altere para o diretório desejado
-    df_var = pd.read_excel(vars_temp_file_path, header = 0)
-    df_var.columns = ['cod'] + file_list
-    df_var = df_var.loc[:,['cod', chosen_file_i]]
     df_dic = pd.read_excel(temp_dir + '/' + vars_dic_xlsx, header = 1)
     df_dic = df_dic[['Tamanho', 'Código\nda\nvariável', 'Unnamed: 4']]
     df_dic.columns = ['len', 'cod', 'desc']
