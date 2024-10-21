@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/871387862.svg)](https://doi.org/10.5281/zenodo.13958877)
+
 # pnadium
 
 Pacote para download e processamento dos microdados da PNAD Contínua do IBGE, facilitando o acesso aos microdados trimestrais, que contém a pesquisa básica e os microdados anuais, que também contém pesquisas suplementares (por trimestre ou visita).
