@@ -12,7 +12,7 @@ cd pnadium
 pip install .
 ```
 
-Ou, se preferir, instale diretamente via `pip` (após publicar no PyPI):
+Ou, se preferir, instale diretamente via `pip`:
 
 ```bash
 pip install pnadium
