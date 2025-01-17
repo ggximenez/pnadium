@@ -1,12 +1,22 @@
 from ftplib import FTP
 import re
 import pandas as pd
-import tempfile
 import zipfile
 import os
 import numpy as np
-import shutil
 from unidecode import unidecode
+from platformdirs import user_cache_dir
+
+def get_default_path():
+    cache_dir = user_cache_dir("pnadium")
+    return os.path.join(cache_dir, 'dados_pnad')
+
+def get_dict_path():
+    if os.name == 'posix':  # Para sistemas Unix (Linux, MacOS)
+        cache_dir = '/content/pnadium'
+    else:
+        cache_dir = user_cache_dir("pnadium")
+    return os.path.join(cache_dir, 'dict_pnad')
 
 def map_files():
     ftp = FTP('ftp.ibge.gov.br', timeout=600)
@@ -54,6 +64,15 @@ def map_files():
     return df_files, df_files_inf, file_list
 
 def download(ano, t, caminho = None):
+    
+    file_path = get_default_path()
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    doc_file_path = get_dict_path()
+    if not os.path.exists(doc_file_path):
+        os.makedirs(doc_file_path)
+
     ftp = FTP('ftp.ibge.gov.br', timeout=600)
     ftp.login()
     
@@ -75,60 +94,95 @@ def download(ano, t, caminho = None):
         return None
     chosen_file_d = '/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/' + str(ano) + '/' + chosen_file_i
     # Cria um diretório temporário para todos os arquivos
-    with tempfile.TemporaryDirectory(delete=False) as temp_dir:
-        print(f'Iniciou o download: Trimestre {t}/{ano} - aguarde.')
-        
-        # Arquivo temporário para o arquivo principal
-        temp_file_path = os.path.join(temp_dir, chosen_file_i)
-        with open(temp_file_path, 'wb') as temp_file:
+    print(f'Iniciou o download: Trimestre {t}/{ano} - aguarde.')
+    
+    # Arquivo temporário para o arquivo principal
+    local_file_path = os.path.join(file_path, chosen_file_i)
+    with open(local_file_path, 'wb') as temp_file:
             ftp.retrbinary(f'RETR {chosen_file_d}', temp_file.write)
 
-        # Download de arquivos de documentação
-        doc_path = '/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/Documentacao/'
-        ftp.cwd(doc_path)
-        docs_files = ftp.nlst()
+    # Download de arquivos de documentação
+    doc_path = '/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/Documentacao/'
+    ftp.cwd(doc_path)
+    docs_files = ftp.nlst()
 
-        doc = None
-        for i in docs_files:
-            if 'dicionario' in i.lower():
-                doc = i
+    doc = None
+    for i in docs_files:
+        if 'dicionario' in i.lower():
+            doc = i
 
-        # Caminhos para os arquivos de documentação
-        doc_temp_file_path = os.path.join(temp_dir, doc)
+    # Caminhos para os arquivos de documentação
+    doc_temp_file_path = os.path.join(doc_file_path, doc)
 
-        with open(doc_temp_file_path, 'wb') as doc_temp_file:
-            ftp.retrbinary(f'RETR {doc_path + doc}', doc_temp_file.write)
-        print(f'Download finalizado.')
-    with zipfile.ZipFile(temp_file_path, 'r') as zip_ref:
-        pnad_txt = zip_ref.namelist()[0]
-        zip_ref.extractall(temp_dir)  # Altere para o diretório desejado
+    with open(doc_temp_file_path, 'wb') as doc_temp_file:
+        ftp.retrbinary(f'RETR {doc_path + doc}', doc_temp_file.write)
+    print(f'Download finalizado.')
+
+    with zipfile.ZipFile(local_file_path, 'r') as zip_ref:
+            pnad_txt = zip_ref.namelist()[0]
+            zip_ref.extractall(file_path)  # Altere para o diretório desejado
+
     with zipfile.ZipFile(doc_temp_file_path, 'r') as zip_ref:
         files_zip = zip_ref.namelist()
         for i in files_zip:
             if '.xls' in i:
                 vars_dic_xlsx = i
-        zip_ref.extractall(temp_dir)  # Altere para o diretório desejado
-    df_dic = pd.read_excel(temp_dir + '/' + vars_dic_xlsx, header = 1)
+        zip_ref.extractall(doc_file_path)
+    df_dic_path = os.path.join(doc_file_path, vars_dic_xlsx)
+    df_dic = pd.read_excel(df_dic_path, header = 1)
     df_dic = df_dic[['Tamanho', 'Código\nda\nvariável', 'Unnamed: 4']]
     df_dic.columns = ['len', 'cod', 'desc']
     df_dic = df_dic.dropna(subset=['len'])
     print(f'Iniciou a criação do DataFrame Pandas: esta etapa pode demorar alguns minutos.')
-    pnad = pd.read_fwf(temp_dir + '/' + pnad_txt, widths=list(df_dic['len'].astype(int)), names=list(df_dic['cod']), na_values=" ")
-    print(f'DataFrame criado.')
-    pnad_file_name = df_files_inf.loc[t-1, str(ano)]
-    pnad_file_name = f'pnad-{pnad_file_name}.parquet'
-    if caminho is not None:
-        pnad.to_parquet(caminho + '/' + pnad_file_name)
-        print(f'DataFrame "{pnad_file_name}" salvo como arquivo parquet na pasta atribuída: {caminho}.')
+    pnad_file = os.path.join(file_path, pnad_txt)
+    # Definir nome do arquivo final
+    pnad_file_name = f'pnad_trimestral_trimestre_0{t}{ano}.parquet'
+    # Ler o arquivo em chunks e salvar partes no diretório `file_path`
+    chunk_size = 100000  # Ajuste conforme necessário
+    file_list = []  # Lista para armazenar os caminhos dos arquivos Parquet temporários
+    pnad_iter = pd.read_fwf(pnad_file, widths=list(df_dic['len'].astype(int)), 
+                            names=list(df_dic['cod']), na_values=" ", chunksize=chunk_size)
+    
+    for i, chunk in enumerate(pnad_iter):
+        temp_file = os.path.join(file_path, f'pnad_temp_part_{i}.parquet')
+        chunk.to_parquet(temp_file, index=False)
+        file_list.append(temp_file)
+    
+    print("Chunks processados e salvos.")
+    # Concatenar os arquivos Parquet em um único DataFrame
+    pnad = pd.concat([pd.read_parquet(f) for f in file_list], ignore_index=True)
+    pnad['UPA'] = pnad['UPA'].astype(str)
+    pnad['V1008'] = pnad['V1008'].astype(str).str.zfill(pnad['V1008'].astype(str).apply(len).max())
+    pnad['V1014'] = pnad['V1014'].astype(str).str.zfill(pnad['V1014'].astype(str).apply(len).max())
+    pnad['V2003'] = pnad['V2003'].astype(str).str.zfill(pnad['V2003'].astype(str).apply(len).max())
+    pnad['COD_FAM'] = pnad['UPA'] + pnad['V1008'] + pnad['V1014']
+    pnad['COD_PESSOA'] = pnad['UPA'] + pnad['V1008'] + pnad['V1014'] + pnad['V2003']    
+    print("DataFrame criado.")
+    # Definir caminho de salvamento final
+    if caminho:
+        final_path = os.path.join(caminho, pnad_file_name)
     else:
-        pnad.to_parquet(pnad_file_name)
-        print(f'DataFrame "{pnad_file_name}" salvo como arquivo parquet na pasta de trabalho atual.')
-    shutil.rmtree(temp_dir)
+        final_path = os.path.join(os.getcwd(), pnad_file_name)
+    pnad.to_parquet(final_path)
+    print(f'DataFrame "{pnad_file_name}" salvo como arquivo Parquet em: {final_path}')
+    # Remover arquivos temporários do `file_path`
+    for f in file_list:
+        os.remove(f)
 
 def consulta_arquivos():
    _, df_files_inf, _ =  map_files()
    return df_files_inf
+
 def consulta_var(cod = None, desc = None):
+
+    file_path = get_default_path()
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    doc_file_path = get_dict_path()
+    if not os.path.exists(doc_file_path):
+        os.makedirs(doc_file_path)
+
     ftp = FTP('ftp.ibge.gov.br', timeout=600)
     ftp.login()
     doc_path = '/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/Documentacao/'
@@ -138,31 +192,31 @@ def consulta_var(cod = None, desc = None):
     for i in docs_files:
         if 'dicionario' in i.lower():
             dic = i
-    with tempfile.TemporaryDirectory() as temp_dir:
-        doc_temp_file_path = os.path.join(temp_dir, dic)
-        with open(doc_temp_file_path, 'wb') as doc_temp_file:
-            ftp.retrbinary(f'RETR {doc_path + dic}', doc_temp_file.write)
-        with zipfile.ZipFile(doc_temp_file_path, 'r') as zip_ref:
-            files_zip = zip_ref.namelist()
-            for i in files_zip:
-                if '.xls' in i:
-                    vars_dic_xlsx = i
-            zip_ref.extractall(temp_dir)
-        df_dic = pd.read_excel(temp_dir + '/' + vars_dic_xlsx, header = 1)
-        df_dic = df_dic[['Tamanho', 'Código\nda\nvariável', 'Unnamed: 4']]
-        df_dic.columns = ['Tamanho', 'Código', 'Descrição']
-        df_dic = df_dic.dropna(subset=['Tamanho'])
-        if desc is not None and cod is None:
-            desc = unidecode(desc.lower())
-            df_dic['Descrição2'] = df_dic['Descrição'].str.lower()
-            df_dic['Descrição2'] = df_dic['Descrição2'].astype(str).apply(unidecode)
-            df_dic_n = df_dic[df_dic['Descrição2'].str.contains(desc)]
-            return df_dic_n[['Tamanho', 'Código', 'Descrição']]
-        if cod is not None and desc is None:
-            cod = unidecode(cod.lower())
-            df_dic['Código2'] = df_dic['Código'].str.lower()
-            df_dic['Código2'] = df_dic['Código2'].astype(str).apply(unidecode)
-            df_dic_n = df_dic[df_dic['Código2'].str.contains(cod)]
-            return df_dic_n[['Tamanho', 'Código', 'Descrição']]
-        else:
-            return df_dic
+    doc_temp_file_path = os.path.join(doc_file_path, dic)
+    with open(doc_temp_file_path, 'wb') as doc_temp_file:
+        ftp.retrbinary(f'RETR {doc_path + dic}', doc_temp_file.write)
+    with zipfile.ZipFile(doc_temp_file_path, 'r') as zip_ref:
+        files_zip = zip_ref.namelist()
+        for i in files_zip:
+            if '.xls' in i:
+                vars_dic_xlsx = i
+        zip_ref.extractall(doc_file_path)
+    df_dic_path = os.path.join(doc_file_path, vars_dic_xlsx)
+    df_dic = pd.read_excel(df_dic_path, header = 1)
+    df_dic = df_dic[['Tamanho', 'Código\nda\nvariável', 'Unnamed: 4']]
+    df_dic.columns = ['Tamanho', 'Código', 'Descrição']
+    df_dic = df_dic.dropna(subset=['Tamanho'])
+    if desc is not None and cod is None:
+        desc = unidecode(desc.lower())
+        df_dic['Descrição2'] = df_dic['Descrição'].str.lower()
+        df_dic['Descrição2'] = df_dic['Descrição2'].astype(str).apply(unidecode)
+        df_dic_n = df_dic[df_dic['Descrição2'].str.contains(desc)]
+        return df_dic_n[['Tamanho', 'Código', 'Descrição']]
+    if cod is not None and desc is None:
+        cod = unidecode(cod.lower())
+        df_dic['Código2'] = df_dic['Código'].str.lower()
+        df_dic['Código2'] = df_dic['Código2'].astype(str).apply(unidecode)
+        df_dic_n = df_dic[df_dic['Código2'].str.contains(cod)]
+        return df_dic_n[['Tamanho', 'Código', 'Descrição']]
+    else:
+        return df_dic
