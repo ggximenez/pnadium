@@ -5,19 +5,17 @@ import zipfile
 import os
 import numpy as np
 from unidecode import unidecode
-from platformdirs import user_cache_dir
+from appdirs import user_cache_dir
 
 def get_default_path():
     cache_dir = user_cache_dir("pnadium")
     return os.path.join(cache_dir, 'dados_pnad')
 
 def get_dict_path():
-    if os.name == 'posix':  # Para sistemas Unix (Linux, MacOS)
-        cache_dir = '/content/pnadium'
-    else:
-        cache_dir = user_cache_dir("pnadium")
+    cache_dir = user_cache_dir("pnadium")
+    os.makedirs(cache_dir, exist_ok=True)
     return os.path.join(cache_dir, 'dict_pnad')
-
+    
 def map_files():
     ftp = FTP('ftp.ibge.gov.br', timeout=600)
     ftp.login()
