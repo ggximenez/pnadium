@@ -2,22 +2,18 @@ from setuptools import setup, find_packages
 
 setup(
     name='pnadium', 
-    version='0.1.7',  
+    version='0.1.8', 
     description='Pacote para download e processamento dos microdados da PNAD Contínua do IBGE.',
-    long_description=open('README.md', encoding='utf-8').read(),  # Certifique-se de que o README.md existe
+    long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     author='Gustavo G. Ximenez',
     author_email='ggximenez@gmail.com',
     url='https://github.com/ggximenez/pnadium',
     packages=find_packages(),
-    install_requires=[
+    install_requires=[  
         'pandas',
         'numpy',
         'unidecode',
-        'ftplib',
-        're',
-        'os',
-        'numpy',
         'appdirs'      
     ],
     classifiers=[
