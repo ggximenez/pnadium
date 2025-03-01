@@ -59,7 +59,7 @@ O parâmetro `tipo` define o tipo de arquivo anual que será utilizado. Os valor
 ##### Funções
 
 - `map_files(tipo)`: Mapeia os arquivos anuais disponíveis no FTP do IBGE para o `tipo` especificado.
-- `download(ano, t, tipo, caminho=None)`: Faz o download e processamento dos dados anuais para o ano (`ano`), período (`t`) e `tipo` especificados. O parâmetro `caminho` é opcional. Se não for especificado o `caminho`, os dados serão salvos no diretório atual.
+- `download(ano, t, tipo, caminho=None, colunas=None)`: Faz o download e processamento dos dados anuais para o ano (`ano`), período (`t`) e `tipo` especificados. O parâmetro `caminho` é opcional. Se não for especificado o `caminho`, os dados serão salvos no diretório atual. A novidade da versão v0.2 é o parâmetro opcional `colunas`: agora você pode passar uma lista com o código da variável de interesse, e o DataFrame final conterá apenas a variável de interesse e as variáveis chave.
 - `consulta_arquivos(tipo)`: Retorna um DataFrame com os arquivos anuais disponíveis para o `tipo` especificado.
 - `consulta_var(ano, t, tipo, cod=None, desc=None)`: Permite consultar o dicionário de variáveis anuais para o ano (`ano`), período (`t`) e `tipo` especificados, podendo filtrar por código (`cod`) ou descrição (`desc`).
 
@@ -94,6 +94,9 @@ pnadium.anual.download(ano=2020, t=1, tipo='v', caminho='caminho/para/salvar')
 
 # Download dos dados anuais de 2020, tipo 't' (trimestre), período 2
 pnadium.anual.download(ano=2020, t=2, tipo='t', caminho='caminho/para/salvar')
+
+# Download dos dados anuais de 2023, tipo 'v' (trimestre), período 1, colunas "V1031" e "V2005":
+pnadium.anual.download(ano=2023, t=1, tipo='v', caminho='caminho/para/salvar', colunas = ["V1031", "V2005"])
 ```
 
 #### Exemplo 3: Consultar Variáveis
@@ -132,6 +135,7 @@ O pacote `pnadium` depende das seguintes bibliotecas:
 - `pandas`
 - `numpy`
 - `unidecode`
+- `appdirs`
 
 Certifique-se de que elas estejam instaladas no seu ambiente Python.
 
