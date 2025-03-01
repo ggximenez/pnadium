@@ -61,7 +61,7 @@ def map_files():
     df_files_inf = df_files_inf[[last_col] + cols_rest]
     return df_files, df_files_inf, file_list
 
-def download(ano, t, caminho = None):
+def download(ano, t, caminho = None, colunas = None):
     
     file_path = get_default_path()
     if not os.path.exists(file_path):
@@ -138,8 +138,34 @@ def download(ano, t, caminho = None):
     # Ler o arquivo em chunks e salvar partes no diretório `file_path`
     chunk_size = 100000  # Ajuste conforme necessário
     file_list = []  # Lista para armazenar os caminhos dos arquivos Parquet temporários
-    pnad_iter = pd.read_fwf(pnad_file, widths=list(df_dic['len'].astype(int)), 
-                            names=list(df_dic['cod']), na_values=" ", chunksize=chunk_size)
+
+    if colunas:
+        # Verifica se todas as colunas desejadas existem em df_dic['cod']
+        colunas_existentes = df_dic['cod'].values
+        missing = [col for col in colunas if col not in colunas_existentes]
+        if missing:
+            raise ValueError(f"As seguintes colunas não foram encontradas: {missing}")
+        
+        widths = list(df_dic['len'].astype(int))
+        starts = np.concatenate(([0], np.cumsum(widths)[:-1]))
+        ends = np.cumsum(widths)
+        colspecs = list(zip(starts, ends))
+        colunas = ['UPA', 'V1008', 'V1014', 'V2003'] + colunas
+        indices = [i for i, nome in enumerate(df_dic['cod']) if nome in colunas]
+        colspecs_filtrados = [colspecs[i] for i in indices]
+        names_filtrados = [df_dic['cod'].iloc[i] for i in indices]
+
+        pnad_iter = pd.read_fwf(
+            pnad_file,
+            colspecs=colspecs_filtrados,
+            names=names_filtrados,
+            na_values=" ",
+            chunksize=chunk_size
+
+        )
+    else:
+        pnad_iter = pd.read_fwf(pnad_file, widths=list(df_dic['len'].astype(int)), 
+                                names=list(df_dic['cod']), na_values=" ", chunksize=chunk_size)
     
     for i, chunk in enumerate(pnad_iter):
         temp_file = os.path.join(file_path, f'pnad_temp_part_{i}.parquet')
@@ -154,7 +180,7 @@ def download(ano, t, caminho = None):
     pnad['V1014'] = pnad['V1014'].astype(str).str.zfill(pnad['V1014'].astype(str).apply(len).max())
     pnad['V2003'] = pnad['V2003'].astype(str).str.zfill(pnad['V2003'].astype(str).apply(len).max())
     pnad['COD_FAM'] = pnad['UPA'] + pnad['V1008'] + pnad['V1014']
-    pnad['COD_PESSOA'] = pnad['UPA'] + pnad['V1008'] + pnad['V1014'] + pnad['V2003']    
+    pnad['COD_PESSOA'] = pnad['UPA'] + pnad['V1008'] + pnad['V1014'] + pnad['V2003']
     print("DataFrame criado.")
     # Definir caminho de salvamento final
     if caminho:
