@@ -4,8 +4,13 @@ import pandas as pd
 import zipfile
 import os
 import numpy as np
+import shutil
 from unidecode import unidecode
 from appdirs import user_cache_dir
+
+def clear_cache():
+    cache_dir = user_cache_dir("pnadium")
+    shutil.rmtree(cache_dir)
 
 def get_default_path():
     cache_dir = user_cache_dir("pnadium")
@@ -61,7 +66,7 @@ def map_files():
     df_files_inf = df_files_inf[[last_col] + cols_rest]
     return df_files, df_files_inf, file_list
 
-def download(ano, t, caminho = None, colunas = None):
+def download(ano, t, caminho = None, colunas = None, save_file = None):
     
     file_path = get_default_path()
     if not os.path.exists(file_path):
@@ -187,11 +192,16 @@ def download(ano, t, caminho = None, colunas = None):
         final_path = os.path.join(caminho, pnad_file_name)
     else:
         final_path = os.path.join(os.getcwd(), pnad_file_name)
-    pnad.to_parquet(final_path)
-    print(f'DataFrame "{pnad_file_name}" salvo como arquivo Parquet em: {final_path}')
+    if save_file:
+        pnad.to_parquet(final_path)
+        print(f'DataFrame "{pnad_file_name}" salvo como arquivo Parquet em: {final_path}')
     # Remover arquivos temporários do `file_path`
     for f in file_list:
         os.remove(f)
+    pnad_final = pnad.copy()
+    del(pnad)
+    clear_cache()
+    return pnad_final
 
 def consulta_arquivos():
    _, df_files_inf, _ =  map_files()
@@ -235,12 +245,15 @@ def consulta_var(cod = None, desc = None):
         df_dic['Descrição2'] = df_dic['Descrição'].str.lower()
         df_dic['Descrição2'] = df_dic['Descrição2'].astype(str).apply(unidecode)
         df_dic_n = df_dic[df_dic['Descrição2'].str.contains(desc)]
+        clear_cache()
         return df_dic_n[['Tamanho', 'Código', 'Descrição']]
     if cod is not None and desc is None:
         cod = unidecode(cod.lower())
         df_dic['Código2'] = df_dic['Código'].str.lower()
         df_dic['Código2'] = df_dic['Código2'].astype(str).apply(unidecode)
         df_dic_n = df_dic[df_dic['Código2'].str.contains(cod)]
+        clear_cache()
         return df_dic_n[['Tamanho', 'Código', 'Descrição']]
     else:
+        clear_cache()
         return df_dic
