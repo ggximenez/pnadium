@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pnadium', 
-    version='0.22', 
+    version='0.23', 
     description='Pacote para download e processamento dos microdados da PNAD Contínua do IBGE.',
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
