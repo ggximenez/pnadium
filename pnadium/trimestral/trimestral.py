@@ -21,49 +21,95 @@ def get_dict_path():
     os.makedirs(cache_dir, exist_ok=True)
     return os.path.join(cache_dir, 'dict_pnad')
     
+# --- helpers ---------------------------------------------------------------
+
+# casa nomes válidos de arquivos PNADC trimestrais:
+# PNADC_<TT><AAAA>.zip           (ex.: PNADC_012016.zip)
+# PNADC_<TT><AAAA>_<YYYYMMDD>.zip (ex.: PNADC_012016_20250815.zip)
+_PAT = re.compile(r'^(PNADC_(\d{2})(\d{4}))(?:_(\d{8}))?\.zip$')
+
+def _parse_file(fname):
+    m = _PAT.match(fname)
+    if not m:
+        return None
+    base, tri, ano, date = m.group(1), m.group(2), m.group(3), m.group(4)
+    return {
+        'base': base,
+        'tri': tri,
+        'ano': ano,
+        'date': int(date) if date else 0,
+        'fname': fname
+    }
+
+def _choose_latest(files):
+    chosen = {}
+    for f in files:
+        info = _parse_file(f)
+        if not info:
+            continue
+        cur = chosen.get(info['base'])
+        if (cur is None) or (info['date'] > cur[0]):
+            chosen[info['base']] = (info['date'], info['fname'])
+    return [v[1] for v in chosen.values()]
+
+def _year_column_from_files(files, expected_year):
+    # índice numérico 0..3 (compatível com seu download)
+    idx = [0, 1, 2, 3]
+    order = ['01', '02', '03', '04']
+
+    parsed = [p for p in map(_parse_file, files) if p and p['ano'] == str(expected_year)]
+    latest = _choose_latest([p['fname'] for p in parsed])
+    tri_to_fname = {}
+    for f in latest:
+        info = _parse_file(f)
+        tri_to_fname[info['tri']] = f
+
+    data = [tri_to_fname.get(order[i], pd.NA) for i in idx]
+    return pd.Series(data, index=idx, name=str(expected_year))
+
 def map_files():
     ftp = FTP('ftp.ibge.gov.br', timeout=600)
     ftp.login()
-    ftp.cwd('/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/')
-    paths = ftp.nlst()
-    year_folders = []
-    patt_anos = r'\A\d{4}\Z'
-    for i in paths:
-        try:
-            year_folders.extend(re.findall(patt_anos, i))
-        except:
-            pass
-    df_files = pd.DataFrame()
-    for i in year_folders:
-        ftp.cwd('/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/'+i)
-        files = ftp.nlst()
-        files
-        index_j = []
-        files_str = []
-        for j, x in enumerate(files):
-            index_j.append(j)
-            files_str.append(x)
-        df_file_i = pd.DataFrame({f'{i}': files_str}, index=index_j)
-        df_files = pd.concat([df_files, df_file_i], axis = 1)
-    df_n = df_files.copy().stack().reset_index()
-    df_n = df_n.sort_values(by=['level_1', 'level_0'])
-    df_n = df_n.reset_index(drop=True)
-    file_list = df_n[0].to_list()
+    base_dir = '/Trabalho_e_Rendimento/Pesquisa_Nacional_por_Amostra_de_Domicilios_continua/Trimestral/Microdados/'
+    ftp.cwd(base_dir)
+
+    # folders de anos (quatro dígitos)
+    year_folders = [p for p in ftp.nlst() if re.fullmatch(r'\d{4}', p)]
+
+    cols = []
+    for ano in sorted(year_folders):
+        ftp.cwd(base_dir + ano)
+        files = [f for f in ftp.nlst() if _PAT.match(f)]
+        col = _year_column_from_files(files, ano)
+        cols.append(col)
+
+    df_files = pd.concat(cols, axis=1) if cols else pd.DataFrame(index=[0,1,2,3])
+
+    # sanity check: 1 arquivo por (tri,ano)
+    for ano in df_files.columns:
+        col = df_files[ano].dropna().tolist()
+        bases = set()
+        for f in col:
+            info = _parse_file(f)
+            b = info['base'] if info else None
+            if b in bases:
+                raise RuntimeError(f'Duplicata detectada no ano {ano} para base {b}')
+            bases.add(b)
+
+    file_list = df_files.stack(future_stack=True).tolist()
+
+    # df_files_inf: célula "TT-AAAA" onde houver arquivo, e rótulo de trimestre
     df_files_inf = df_files.copy()
-    for i in df_files.columns:
-        df_files_inf[i] = df_files_inf[i].replace('PNADC_', '',regex=True)
-        df_files_inf[i] = df_files_inf[i].replace(r'_\d{8}\.zip|\.zip', '',regex=True)
-        df_files_inf[i] = df_files_inf[i].astype(str).apply(lambda x: x[:2] + '-' + x[2:])
-        df_files_inf[i] = df_files_inf[i].str.replace('na/n', '')
-    df_files_inf['Trimestre'] = [
-        '1º Trimestre',
-        '2º Trimestre',    
-        '3º Trimestre',
-        '4º Trimestre',
-    ]
-    last_col = df_files_inf.columns[-1]
-    cols_rest = list(df_files_inf.columns[0:-1])
-    df_files_inf = df_files_inf[[last_col] + cols_rest]
+    for ano in df_files_inf.columns:
+        for i in df_files_inf.index:  # i = 0..3
+            if pd.isna(df_files_inf.loc[i, ano]):
+                continue
+            tt = f"{i+1:02d}"  # '01'..'04'
+            df_files_inf.loc[i, ano] = f"{tt}-{ano}"
+
+    rotulos = {0: '1º Trimestre', 1: '2º Trimestre', 2: '3º Trimestre', 3: '4º Trimestre'}
+    df_files_inf.insert(0, 'Trimestre', [rotulos[i] for i in df_files_inf.index])
+
     return df_files, df_files_inf, file_list
 
 def download(ano, t, caminho = None, colunas = None, save_file = None):
